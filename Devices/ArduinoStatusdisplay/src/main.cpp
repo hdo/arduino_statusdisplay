@@ -74,7 +74,7 @@ int16_t parse_hex_byte(uint8_t n1, uint8_t n0) {
 uint8_t parse_set_led_command() {
 	// 0: '\\'
 	// 1-2: <command as HEX> 1 (set led command)
-	// 3-4: <channel as HEX> (0 - led count)
+	// 3-4: <led index as HEX> (0 - led count), 0xFF means all leds
 	// 5-6: <value for R as HEX>
 	// 7-8: <value for G as HEX>
 	// 9-10: <value for B as HEX>
@@ -93,6 +93,19 @@ uint8_t parse_set_led_command() {
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
 				set_led(led_index, value);
+				return 1;
+			}
+		}
+
+		if (led_index == 0xff) {
+			uint8_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
+			uint8_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
+			uint8_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
+			if (value_r > -1 && value_g > -1 && value_b > -1) {
+				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
+				for(uint8_t i=0; i < LED_COUNT; i++) {
+					set_led(i, value);
+				}
 				return 1;
 			}
 		}
@@ -118,6 +131,8 @@ int main(void) {
 	while (true) {
 		if (Serial.available() > 0) {
 			uint8_t data = Serial.read();
+			Serial.write(data);
+			//Serial.print(data);
 
 			// if busy then ignore all incoming serial data
 			if (processserial) {
@@ -125,7 +140,7 @@ int main(void) {
 			}
 
 			// check for line feed
-			if (data == 0x0a) {
+			if (data == 0x0a || data == 0x0d) {
 				processserial = 1;
 			}
 			else {
@@ -143,6 +158,7 @@ int main(void) {
 				if (command > -1) {
 					switch (command) {
 					case 1: ret = parse_set_led_command(); break;
+					//case 2: update_leds(); break;
 					}
 				}
 			}
