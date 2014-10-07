@@ -6,7 +6,7 @@ CPP_SRC += \
 main.cpp
 
 # Project name
-PROJ_NAME=arduinostatusdisplay
+PROJ_NAME=arduinows2812test
 OUTPATH=build
 
 
