@@ -11,7 +11,7 @@ extern "C" {
 #define COLOR_GREEN 1
 #define COLOR_BLUE 2
 
-struct cRGB led[LED_COUNT];
+struct cRGB led[LED_COUNT]; //cRGB is organized G, R, B
 
 uint8_t serialdata[SERIAL_BUFFER_SIZE];
 uint8_t serialcount = 0;
@@ -91,7 +91,7 @@ uint8_t parse_set_led_command() {
 			uint8_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
 
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
-				cRGB value = {value_r, value_g, value_b};
+				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
 				set_led(led_index, value);
 				return 1;
 			}
