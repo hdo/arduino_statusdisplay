@@ -42,7 +42,7 @@ void set_led(uint8_t index, cRGB value) {
 void setup() {
 	// initialize the digital pin as an output:
 	pinMode(ledPin, OUTPUT);
-	Serial.begin(38400); // 0.2% error rate at 8 MHZ
+	Serial.begin(38400); // 0.2% error rate at 8 MHZ (see datasheet)
 	init_leds();
 	update_leds();
 }
@@ -64,7 +64,7 @@ int16_t parse_hex_byte(uint8_t n1, uint8_t n0) {
 	int16_t parsed_n1 = parse_nibble(n1);
 	int16_t parsed_n0 = parse_nibble(n0);
 	if (parsed_n1 > -1 && parsed_n0 > -1) {
-		uint8_t ret = (0x0f & (uint8_t) parsed_n1) << 8;
+		uint8_t ret = (0x0f & (uint8_t) parsed_n1) << 4;
 		ret |= (0x0f & (uint8_t) parsed_n0);
 		return ret;
 	}
@@ -73,21 +73,22 @@ int16_t parse_hex_byte(uint8_t n1, uint8_t n0) {
 
 uint8_t parse_set_led_command() {
 	// 0: '\\'
-	// 1: '1' (set led command)
-	// 2-3: <channel as HEX> (0 - led count)
-	// 4-5: <value for R as HEX>
-	// 6-7: <value for G as HEX>
-	// 8-9: <value for B as HEX>
+	// 1-2: <command as HEX> 1 (set led command)
+	// 3-4: <channel as HEX> (0 - led count)
+	// 5-6: <value for R as HEX>
+	// 7-8: <value for G as HEX>
+	// 9-10: <value for B as HEX>
 	//
-	// example: \ 1 00 50 50 50
+	// example: \ 01 02 50 50 50 \n
 
-	uint8_t led_index = parse_hex_byte(serialdata[2], serialdata[3]);
 	if (serialcount >= 10) {
-		// invalid command
+		uint8_t led_index = parse_hex_byte(serialdata[3], serialdata[4]);
+
+		// check whether command is valid command
 		if (led_index > -1 && led_index < LED_COUNT) {
-			uint8_t value_r = parse_hex_byte(serialdata[4], serialdata[5]);
-			uint8_t value_g = parse_hex_byte(serialdata[6], serialdata[7]);
-			uint8_t value_b = parse_hex_byte(serialdata[8], serialdata[9]);
+			uint8_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
+			uint8_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
+			uint8_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
 
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_r, value_g, value_b};
@@ -136,9 +137,13 @@ int main(void) {
 		if (processserial) {
 			uint8_t ret = 0;
 			// every valid command begins with '\'
-			if (serialdata[0] == '\\') {
-				switch (serialdata[1]) {
-				case '1': ret = parse_set_led_command(); break;
+			if (serialdata[0] == '\\' && serialcount > 2) {
+
+				int16_t command = parse_hex_byte(serialdata[1], serialdata[2]);
+				if (command > -1) {
+					switch (command) {
+					case 1: ret = parse_set_led_command(); break;
+					}
 				}
 			}
 			// clear serial data
