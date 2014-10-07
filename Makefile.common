@@ -1,0 +1,59 @@
+BINPATH=/usr/bin
+CC=$(BINPATH)/avr-gcc
+CXX=$(BINPATH)/avr-g++
+OBJCOPY=$(BINPATH)/avr-objcopy
+OBJDUMP=$(BINPATH)/avr-objdump
+SIZE=$(BINPATH)/avr-size
+#AR=$(BINPATH)/avr-ar rcs
+AR=$(BINPATH)/avr-ar
+
+AVRDUDE = avrdude
+AVRDUDE_PROGRAMMER = STK500v1 -b 57600  # arduino mini pro 8MHZ bootloader
+AVRDUDE_PORT = /dev/ttyUSB0
+AVRDUDE_WRITE_FLASH = -U flash:w:$(OUTPATH)/$(PROJ_NAME).hex
+AVRDUDE_FLAGS = -p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER)
+AVRDUDE_FLAGS += $(AVRDUDE_NO_VERIFY)
+AVRDUDE_FLAGS += $(AVRDUDE_VERBOSE)
+AVRDUDE_FLAGS += $(AVRDUDE_ERASE_COUNTER)
+
+
+
+MCU = atmega328p
+BOARD  =
+F_CPU = 8000000
+FORMAT = ihex
+TARGET = CSM
+OBJDIR = .
+
+CFLAGS = -gdwarf-2
+CFLAGS += -DF_CPU=$(F_CPU)UL
+CFLAGS += -Os
+CFLAGS += -funsigned-char
+CFLAGS += -funsigned-bitfields
+CFLAGS += -ffunction-sections
+CFLAGS += -fpack-struct
+CFLAGS += -fshort-enums
+CFLAGS += -finline-limit=20
+CFLAGS += -Wall
+CFLAGS += -Wstrict-prototypes
+CFLAGS += -Wundef
+CFLAGS += -std=gnu99
+CFLAGS += -mcall-prologues
+CFLAGS += -Wundef
+CFLAGS += -mmcu=$(MCU)
+
+CXXFLAGS = -gdwarf-2
+CXXFLAGS += -DF_CPU=$(F_CPU)UL
+CXXFLAGS += -Os
+CXXFLAGS += -funsigned-char
+CXXFLAGS += -funsigned-bitfields
+CXXFLAGS += -ffunction-sections
+CXXFLAGS += -fpack-struct
+CXXFLAGS += -fshort-enums
+CXXFLAGS += -finline-limit=20
+CXXFLAGS += -Wall
+CXXFLAGS += -Wundef
+CXXFLAGS += -mcall-prologues
+CXXFLAGS += -Wundef
+CXXFLAGS += -mmcu=$(MCU)
+
