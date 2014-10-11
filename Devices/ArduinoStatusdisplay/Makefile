@@ -3,7 +3,7 @@ include ../../Makefile.common
 # Sources
 
 CPP_SRC += \
-main.cpp
+main.cpp 
 
 # Project name
 PROJ_NAME=arduinostatusdisplay
@@ -53,7 +53,7 @@ proj: prepare $(OUTPATH)/$(PROJ_NAME).elf
 
 $(OUTPATH)/$(PROJ_NAME).elf: $(CPP_SRC)
 	mkdir -p $(OUTPATH)	
-	#bash ./scripts/setbuildid.script
+	bash ../../scripts/setbuildid.script
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LIBPATHS) $(LIBS)
 	$(OBJCOPY) -j .text  -j .data -O ihex $(OUTPATH)/$(PROJ_NAME).elf $(OUTPATH)/$(PROJ_NAME).hex
 	

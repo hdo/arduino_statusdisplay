@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include "version.h"
 
 extern "C" {
 #include "light_ws2812.h"
@@ -6,10 +7,6 @@ extern "C" {
 
 #define LED_COUNT 30
 #define SERIAL_BUFFER_SIZE 32
-
-#define COLOR_RED 0
-#define COLOR_GREEN 1
-#define COLOR_BLUE 2
 
 struct cRGB led[LED_COUNT]; //cRGB is organized G, R, B
 
@@ -152,15 +149,39 @@ int main(void) {
 		if (processserial) {
 			uint8_t ret = 0;
 			// every valid command begins with '\'
-			if (serialdata[0] == '\\' && serialcount > 2) {
+			if (serialdata[0] == '\\' && serialcount >= 2) {
 
-				int16_t command = parse_hex_byte(serialdata[1], serialdata[2]);
-				if (command > -1) {
-					switch (command) {
-					case 1: ret = parse_set_led_command(); break;
-					//case 2: update_leds(); break;
-					}
-				}
+				if (serialdata[1] == 'i') {
+					Serial.print("PRODUCT:");
+					Serial.println(VERSION_PRODUCT_NAME);
+
+					Serial.print("HARDWARE VERSION:");
+					Serial.println(VERSION_HARDWARE_VERSION);
+
+					Serial.print("FIRMWARE VERSION:");
+					Serial.println(VERSION_FIRMWARE_VERSION);
+
+					Serial.print("FIRMWARE BUILD:");
+					Serial.println(VERSION_FIRMWARE_BUILD);
+
+ 				} else if (serialdata[1] == 'v') {
+					Serial.print("FIRMWARE VERSION:");
+					Serial.println(VERSION_FIRMWARE_VERSION);
+ 				} else if (serialdata[1] == 'h') {
+					Serial.print("HARDWARE VERSION:");
+					Serial.println(VERSION_HARDWARE_VERSION);
+ 				} else if (serialdata[1] == 'b') {
+					Serial.print("FIRMWARE BUILD:");
+					Serial.println(VERSION_FIRMWARE_BUILD);
+ 				} else {
+ 					int16_t command = parse_hex_byte(serialdata[1], serialdata[2]);
+ 					if (command > -1) {
+ 						switch (command) {
+ 						case 1: ret = parse_set_led_command(); break;
+ 						//case 2: update_leds(); break;
+ 						}
+ 					}
+ 				}
 			}
 			// clear serial data
 			serialcount = 0;
