@@ -203,6 +203,7 @@ int main(void) {
  			}
 		}
 
+		// blink each 500 ms
 		if (math_calc_diff(ticks, last_led_blink) > 50) {
 			last_led_blink = ticks;
 
