@@ -9,8 +9,13 @@ extern "C" {
 
 #define LED_COUNT 30
 #define SERIAL_BUFFER_SIZE 32
+#define LED_NORMAL 0
+#define LED_BLINK 1
 
 struct cRGB led[LED_COUNT]; //cRGB is organized G, R, B
+struct cRGB led_backup[LED_COUNT];
+
+uint8_t led_mode[LED_COUNT];
 
 uint8_t serialdata[SERIAL_BUFFER_SIZE];
 uint8_t serialcount = 0;
@@ -20,8 +25,11 @@ uint8_t processserial = 0;
 int ledPin = 13;    // LED connected to digital pin 13
 
 volatile uint32_t ticks;
-uint32_t last_blink = 0;
-uint8_t set_on = 0;
+uint32_t last_heartbeat_blink = 0;
+uint32_t last_led_blink = 0;
+uint8_t heartbeat_led_on = 0;
+uint8_t blink_on = 0;
+uint8_t dirty = 0;
 
 ISR(TIMER2_COMPA_vect, ISR_BLOCK) {
 
@@ -59,14 +67,23 @@ void init_leds() {
 		led[i].r=0;
 		led[i].g=0;
 		led[i].b=0;
+		led_mode[i] = LED_NORMAL;
 	}
 }
 
 void set_led(uint8_t index, cRGB value) {
 	if (index < LED_COUNT) {
 		led[index] = value;
+		led_backup[index] = value;
 	}
 }
+
+void set_temp_led(uint8_t index, cRGB value) {
+	if (index < LED_COUNT) {
+		led[index] = value;
+	}
+}
+
 
 void setup() {
 	// initialize the digital pin as an output:
@@ -111,30 +128,41 @@ uint8_t parse_set_led_command() {
 	//
 	// example: \ 01 02 50 50 50 \n
 
-	if (serialcount >= 10) {
-		uint8_t led_index = parse_hex_byte(serialdata[3], serialdata[4]);
+	if (serialcount > 10) {
+		int16_t led_index = parse_hex_byte(serialdata[3], serialdata[4]);
+
+		uint8_t ledmode = LED_NORMAL;
+		if (serialcount > 12) {
+			int16_t value_mode = parse_hex_byte(serialdata[11], serialdata[12]);
+			switch(value_mode) {
+			case 0 : ledmode = LED_NORMAL; break;
+			case 1 : ledmode = LED_BLINK; break;
+			}
+		}
 
 		// check whether command is valid command
 		if (led_index > -1 && led_index < LED_COUNT) {
-			uint8_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
-			uint8_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
-			uint8_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
+			int16_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
+			int16_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
+			int16_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
 
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
 				set_led(led_index, value);
+				led_mode[led_index] = ledmode;
 				return 1;
 			}
 		}
 
 		if (led_index == 0xff) {
-			uint8_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
-			uint8_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
-			uint8_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
+			int16_t value_r = parse_hex_byte(serialdata[5], serialdata[6]);
+			int16_t value_g = parse_hex_byte(serialdata[7], serialdata[8]);
+			int16_t value_b = parse_hex_byte(serialdata[9], serialdata[10]);
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
 				for(uint8_t i=0; i < LED_COUNT; i++) {
 					set_led(i, value);
+					led_mode[i] = ledmode;
 				}
 				return 1;
 			}
@@ -161,17 +189,45 @@ int main(void) {
 	sei(); // enable interrupts
 
 	while (true) {
-		// each seconds
 
-		if (math_calc_diff(ticks, last_blink) > 100) {
-			last_blink = ticks;
- 			if (set_on == 1) {
- 				set_on = 0;
+		// heart beat each second
+		if (math_calc_diff(ticks, last_heartbeat_blink) > 100) {
+			last_heartbeat_blink = ticks;
+ 			if (heartbeat_led_on == 1) {
+ 				heartbeat_led_on = 0;
  				digitalWrite(ledPin, HIGH);   // set the LED on
  			}
  			else {
- 				set_on = 1;
+ 				heartbeat_led_on = 1;
  				digitalWrite(ledPin, LOW);   // set the LED on
+ 			}
+		}
+
+		if (math_calc_diff(ticks, last_led_blink) > 50) {
+			last_led_blink = ticks;
+
+			if (blink_on == 1) {
+ 				blink_on = 0;
+
+ 				// BLINK LED ON
+				for(uint8_t i=0; i < LED_COUNT; i++) {
+					if (led_mode[i] == LED_BLINK) {
+						set_temp_led(i, led_backup[i]);
+						dirty = 1;
+					}
+				}
+ 			}
+ 			else {
+ 				blink_on = 1;
+
+ 				// BLINK LED OFF
+ 				cRGB value = {0, 0, 0}; // black = led off
+				for(uint8_t i=0; i < LED_COUNT; i++) {
+					if (led_mode[i] == LED_BLINK) {
+						set_temp_led(i, value);
+						dirty = 1;
+					}
+				}
  			}
 		}
 
@@ -195,6 +251,7 @@ int main(void) {
 				}
 			}
 		}
+
 		if (processserial) {
 			uint8_t ret = 0;
 			// every valid command begins with '\'
@@ -236,8 +293,13 @@ int main(void) {
 			serialcount = 0;
 			processserial = 0;
 			if (ret) {
-				update_leds();
+				dirty = 1;
 			}
+		}
+
+		if (dirty) {
+			dirty = 0;
+			update_leds();
 		}
 	}
 }
