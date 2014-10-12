@@ -13,9 +13,7 @@ extern "C" {
 #define LED_BLINK 1
 
 struct cRGB led[LED_COUNT]; //cRGB is organized G, R, B
-struct cRGB led_backup[LED_COUNT];
-
-uint8_t led_mode[LED_COUNT];
+struct cRGB led_blink[LED_COUNT];
 
 uint8_t serialdata[SERIAL_BUFFER_SIZE];
 uint8_t serialcount = 0;
@@ -59,28 +57,32 @@ uint32_t math_calc_diff(uint32_t value1, uint32_t value2) {
 	}
 }
 void update_leds() {
-    ws2812_setleds(led, LED_COUNT);
+	if (blink_on) {
+	    ws2812_setleds(led_blink, LED_COUNT);
+	}
+	else {
+	    ws2812_setleds(led, LED_COUNT);
+	}
 }
 
 void init_leds() {
+	cRGB value = {0, 0, 0};
 	for(int i=0; i < LED_COUNT; i++) {
-		led[i].r=0;
-		led[i].g=0;
-		led[i].b=0;
-		led_mode[i] = LED_NORMAL;
+		led[i] = value;
+		led_blink[i] = value;
 	}
 }
 
-void set_led(uint8_t index, cRGB value) {
+void set_led(uint8_t index, cRGB value, uint8_t blink) {
 	if (index < LED_COUNT) {
 		led[index] = value;
-		led_backup[index] = value;
-	}
-}
-
-void set_temp_led(uint8_t index, cRGB value) {
-	if (index < LED_COUNT) {
-		led[index] = value;
+		cRGB blinkvalue = {0, 0, 0};
+		if (blink) {
+			led_blink[index] = blinkvalue;
+		}
+		else {
+			led_blink[index] = value;
+		}
 	}
 }
 
@@ -131,12 +133,12 @@ uint8_t parse_set_led_command() {
 	if (serialcount > 10) {
 		int16_t led_index = parse_hex_byte(serialdata[3], serialdata[4]);
 
-		uint8_t ledmode = LED_NORMAL;
+		uint8_t ledmode = 0; // no blink
 		if (serialcount > 12) {
 			int16_t value_mode = parse_hex_byte(serialdata[11], serialdata[12]);
-			switch(value_mode) {
-			case 0 : ledmode = LED_NORMAL; break;
-			case 1 : ledmode = LED_BLINK; break;
+
+			if (value_mode == 1) {
+				ledmode = 1;
 			}
 		}
 
@@ -148,8 +150,7 @@ uint8_t parse_set_led_command() {
 
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
-				set_led(led_index, value);
-				led_mode[led_index] = ledmode;
+				set_led(led_index, value, ledmode);
 				return 1;
 			}
 		}
@@ -161,8 +162,7 @@ uint8_t parse_set_led_command() {
 			if (value_r > -1 && value_g > -1 && value_b > -1) {
 				cRGB value = {value_g, value_r, value_b}; // see cRGB definition (G,R,B)
 				for(uint8_t i=0; i < LED_COUNT; i++) {
-					set_led(i, value);
-					led_mode[i] = ledmode;
+					set_led(i, value, ledmode);
 				}
 				return 1;
 			}
@@ -208,27 +208,11 @@ int main(void) {
 
 			if (blink_on == 1) {
  				blink_on = 0;
-
- 				// BLINK LED ON
-				for(uint8_t i=0; i < LED_COUNT; i++) {
-					if (led_mode[i] == LED_BLINK) {
-						set_temp_led(i, led_backup[i]);
-						dirty = 1;
-					}
-				}
  			}
  			else {
  				blink_on = 1;
-
- 				// BLINK LED OFF
- 				cRGB value = {0, 0, 0}; // black = led off
-				for(uint8_t i=0; i < LED_COUNT; i++) {
-					if (led_mode[i] == LED_BLINK) {
-						set_temp_led(i, value);
-						dirty = 1;
-					}
-				}
  			}
+			dirty=1;
 		}
 
 		if (Serial.available() > 0) {
