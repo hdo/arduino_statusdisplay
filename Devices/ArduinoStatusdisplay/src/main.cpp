@@ -3,6 +3,8 @@
 
 extern "C" {
 #include "light_ws2812.h"
+#include <avr/io.h>
+#include <avr/interrupt.h>
 }
 
 #define LED_COUNT 30
@@ -17,7 +19,37 @@ uint8_t processserial = 0;
 
 int ledPin = 13;    // LED connected to digital pin 13
 
+volatile uint32_t ticks;
+uint32_t last_blink = 0;
+uint8_t set_on = 0;
 
+ISR(TIMER2_COMPA_vect, ISR_BLOCK) {
+
+	ticks++;
+}
+
+
+void init_systicks() {
+	TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20); // prescale 1024
+	TCCR2A = _BV(WGM21);    // MODE CTC
+	TIMSK2 = (1 << OCIE2A); // enable compare match interrupt
+
+	// 8000000/1024/78 == 100HZ -> 10 ms
+	OCR2A = 77; // !!! must me set last or it will not work!
+}
+
+uint32_t math_calc_diff(uint32_t value1, uint32_t value2) {
+	if (value1 == value2) {
+		return 0;
+	}
+	if (value1 > value2) {
+		return (value1 - value2);
+	}
+	else {
+		// check for overflow
+		return (0xffffffff - value2 + value1);
+	}
+}
 void update_leds() {
     ws2812_setleds(led, LED_COUNT);
 }
@@ -42,6 +74,7 @@ void setup() {
 	Serial.begin(38400); // 0.2% error rate at 8 MHZ (see datasheet)
 	init_leds();
 	update_leds();
+	init_systicks();
 }
 
 int16_t parse_nibble(uint8_t nibble) {
@@ -120,12 +153,28 @@ int main(void) {
 
 	Serial.println("Welcome to Statusdisplay!");
 
+
 	digitalWrite(ledPin, HIGH);   // set the LED on
 	delay(1000);                  // wait for a second
 	digitalWrite(ledPin, LOW);    // set the LED off
-	delay(1000);                  // wait for a second
+
+	sei(); // enable interrupts
 
 	while (true) {
+		// each seconds
+
+		if (math_calc_diff(ticks, last_blink) > 100) {
+			last_blink = ticks;
+ 			if (set_on == 1) {
+ 				set_on = 0;
+ 				digitalWrite(ledPin, HIGH);   // set the LED on
+ 			}
+ 			else {
+ 				set_on = 1;
+ 				digitalWrite(ledPin, LOW);   // set the LED on
+ 			}
+		}
+
 		if (Serial.available() > 0) {
 			uint8_t data = Serial.read();
 			Serial.write(data);
