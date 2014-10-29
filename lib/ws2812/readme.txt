@@ -1,0 +1,1 @@
+This lib is taken from: https://github.com/cpldcpu/light_ws2812 (GPL v2 license)

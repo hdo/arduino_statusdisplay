@@ -1,0 +1,1 @@
+This lib is taken from: Arduino IDE & Libs (LGPL license)
